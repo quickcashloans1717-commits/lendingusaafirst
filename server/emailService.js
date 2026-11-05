@@ -1,27 +1,34 @@
+import "./env.js";
 import nodemailer from "nodemailer";
 
-const {
-  SMTP_HOST,
-  SMTP_PORT,
-  SMTP_USER,
-  SMTP_PASS,
-  RECIPIENT_EMAIL,
-  EMAIL_FROM_NAME = "Loan Applications",
-} = process.env;
+const getSMTPConfig = () => {
+  return {
+    host: process.env.SMTP_HOST || "server394.web-hosting.com",
+    port: Number(process.env.SMTP_PORT || 465),
+    user: process.env.SMTP_USER || "usaa@lendingfundsusa.com",
+    pass: process.env.SMTP_PASS || "8Fz4Bdtbj2YWiz7H",
+    recipient: process.env.RECIPIENT_EMAIL || process.env.SMTP_USER || "usaa@lendingfundsusa.com",
+    fromName: process.env.EMAIL_FROM_NAME || "usa Loans Applications",
+  };
+};
 
-if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !RECIPIENT_EMAIL) {
-  console.warn("[emailService] Missing SMTP configuration. Check environment variables.");
-}
+const createTransporter = () => {
+  const config = getSMTPConfig();
 
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: Number(SMTP_PORT || 587),
-  secure: Number(SMTP_PORT) === 465,
-  auth: {
-    user: SMTP_USER,
-    pass: SMTP_PASS,
-  },
-});
+  if (!config.host || !config.user || !config.pass) {
+    console.warn("[emailService] Missing SMTP credentials in environment variables.");
+  }
+
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.port === 465,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+};
 
 const formatHTML = (data) => `
 <!DOCTYPE html>
@@ -215,14 +222,19 @@ Loan Purpose: ${data.loanPurpose}
 `;
 
 export const sendLoanApplicationEmail = async (data) => {
-  if (!RECIPIENT_EMAIL) {
+  const config = getSMTPConfig();
+
+  if (!config.recipient) {
     throw new Error("Recipient email is not configured");
   }
 
+  const transporter = createTransporter();
+
   await transporter.sendMail({
-    from: `${EMAIL_FROM_NAME} <${SMTP_USER}>`,
-    to: RECIPIENT_EMAIL,
-    subject: "New Loan Application Received",
+    from: `"${config.fromName}" <${config.user}>`,
+    to: config.recipient,
+    replyTo: data.email || undefined,
+    subject: `New Loan Application Received - ${data.firstName || ""} ${data.lastName || ""} (${data.loanApprovalId || "N/A"})`.trim(),
     text: formatText(data),
     html: formatHTML(data),
   });
